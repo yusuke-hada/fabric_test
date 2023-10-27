@@ -16,48 +16,63 @@ document.addEventListener('DOMContentLoaded', function () {
   var flowchartCanvas = new fabric.Canvas('flowchartCanvas', { selection: false, stopDoubleClickPropagation: true});
 
   //フローチャートキャンバスの境界線の設定
-  flowchartCanvas.on('object:moving', function(event) {
-    var obj = event.target;
-    var zoom = flowchartCanvas.getZoom();
-    
-    obj.setCoords();  // Update object's coordinates
+ // フローチャートキャンバスの境界線の設定
+flowchartCanvas.on('object:moving', function(event) {
+  var obj = event.target;
+  var zoom = flowchartCanvas.getZoom();
+  var zoomMin = 0.5; // 最小のズームレベルを設定
 
-    var bounds;
-    if (obj.type === 'group') {
-        bounds = obj.getBoundingRect(); // グループの境界を取得
-    } else {
-        bounds = {
-            left: obj.left,
-            top: obj.top,
-            width: obj.width * obj.scaleX,
-            height: obj.height * obj.scaleY
-        };
-    }
+  obj.setCoords();
 
-    var viewportMatrix = flowchartCanvas.viewportTransform;
+  var bounds;
+  if (obj.type === 'group') {
+      bounds = obj.getBoundingRect();
+  } else if (obj.type === 'textbox' || obj.type === 'i-text') {
+      bounds = obj.getBoundingRect();
+  } else {
+      bounds = {
+          left: obj.left,
+          top: obj.top,
+          width: obj.width * obj.scaleX,
+          height: obj.height * obj.scaleY
+      };
+  }
 
-    // Calculate the canvas boundaries according to the zoom level and viewport transform
-    var canvasBoundLeft = -viewportMatrix[4] / zoom;
-    var canvasBoundTop = -viewportMatrix[5] / zoom;
-    var canvasBoundRight = (-viewportMatrix[4] + flowchartCanvas.width) / zoom;
-    var canvasBoundBottom = (-viewportMatrix[5] + flowchartCanvas.height) / zoom;
+  var viewportMatrix = flowchartCanvas.viewportTransform;
 
-    // Horizontal bounds
-    if (bounds.left < canvasBoundLeft) {
-        obj.left += canvasBoundLeft - bounds.left;
-    }
-    if (bounds.left + bounds.width > canvasBoundRight) {
-        obj.left -= (bounds.left + bounds.width - canvasBoundRight);
-    }
+  // オブジェクトの実際の座標を計算
+  var actualLeft = (obj.left - viewportMatrix[4]) / zoom;
+  var actualTop = (obj.top - viewportMatrix[5]) / zoom;
+  var actualRight = actualLeft + (bounds.width / zoom); // ズームレベルで調整
+  var actualBottom = actualTop + (bounds.height / zoom); // ズームレベルで調整
 
-    // Vertical bounds
-    if (bounds.top < canvasBoundTop) {
-        obj.top += canvasBoundTop - bounds.top;
-    }
-    if (bounds.top + bounds.height > canvasBoundBottom) {
-        obj.top -= (bounds.top + bounds.height - canvasBoundBottom);
-    }
+  // キャンバスの境界を計算
+  var canvasBoundLeft = 0;
+  var canvasBoundTop = 0;
+  var canvasBoundRight = flowchartCanvas.width / (zoom < zoomMin ? zoomMin : zoom); // 最小ズームレベルを適用
+  var canvasBoundBottom = flowchartCanvas.height / (zoom < zoomMin ? zoomMin : zoom); // 最小ズームレベルを適用
+
+  // 水平方向の境界チェック
+  if (actualLeft < canvasBoundLeft) {
+      obj.set('left', obj.left + ((canvasBoundLeft * zoom) - obj.left));
+  }
+  if (actualRight > canvasBoundRight) {
+      obj.set('left', obj.left - ((actualRight - canvasBoundRight) * zoom));
+  }
+
+  // 垂直方向の境界チェック
+  if (actualTop < canvasBoundTop) {
+      obj.set('top', obj.top + ((canvasBoundTop * zoom) - obj.top));
+  }
+  if (actualBottom > canvasBoundBottom) {
+      obj.set('top', obj.top - ((actualBottom - canvasBoundBottom) * zoom));
+  }
+
+  obj.setCoords();
 });
+
+
+
 
 //マウスホイールで拡大・縮小できる
 // Zoomの最大・最小値
